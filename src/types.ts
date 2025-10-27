@@ -2,10 +2,10 @@
 export type Task = {
   _id: string
   title: string
-  category: string
+  category?: string
   done: boolean
   archived: boolean
-  createdAt: string
-  updatedAt: string
-  dueDate: string
+  createdAt?: string
+  updatedAt?: string
+  dueDate?: string
 }

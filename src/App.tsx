@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from './lib/api'
 import type { Task } from './types'
 // 例：型（お好みでファイル上部に）
-type DoneFilter = 'all' | 'true' | 'false'
+// type DoneFilter = 'all' | 'true' | 'false'
 type SortKey = 'createdAt' | 'title' | 'dueDate' | 'category' | 'done' | 'archived'
 type Order = 'asc' | 'desc'
 
@@ -13,6 +13,7 @@ const categoriesFrom = (items: Task[]) =>
 
 
 type ToggleVars = { id: string; field: 'done' | 'archived'; value?: boolean }
+type ctx = { prev?: Task[] }
 
 export default function App() {
   const qc = useQueryClient()
@@ -34,40 +35,40 @@ export default function App() {
   // 取得キー
   const key = ['tasks', { category, doneFilter, sort, order }] as const
 
-// …state は既存を利用（category, doneFilter, sort, order など）
+  // …state は既存を利用（category, doneFilter, sort, order など）
 
-// 一覧取得（★ list に params を渡す）
-const { data: items = [], isLoading } = useQuery<Task[]>({
-  queryKey: key,
-  queryFn: () =>
-    api.list({
-      category: category || undefined,
-      done: doneFilter === 'all' ? undefined : doneFilter === 'true',
-      sort: (sort as SortKey) || 'createdAt',
-      order: (order as Order) || 'desc',
-    }),
-})
-const cats = useMemo(() => categoriesFrom(items), [items])
+  // 一覧取得（★ list に params を渡す）
+  const { data: items = [], isLoading } = useQuery<Task[]>({
+    queryKey: key,
+    queryFn: () =>
+      api.list({
+        category: category || undefined,
+        done: doneFilter === 'all' ? undefined : doneFilter === 'true',
+        sort: (sort as SortKey) || 'createdAt',
+        order: (order as Order) || 'desc',
+      }),
+  })
+  const cats = useMemo(() => categoriesFrom(items), [items])
 
-// 追加（★ create のペイロードを拡張版に）
-const mCreate = useMutation<Task, unknown, void>({
-  mutationFn: (): Promise<Task> =>
-    api.create({
-      title: title.trim(),
-      category: newCategory.trim() || undefined,
-      dueDate: dueDate || undefined, // 文字列(ISO) or null/undefined
-    }),
-  onSuccess: () => {
-    setTitle('')
-    setNewCategory('')
-    setDueDate('')
-    qc.invalidateQueries({ queryKey: ['tasks'] })
-  },
-})
+  // 追加（★ create のペイロードを拡張版に）
+  const mCreate = useMutation<Task, unknown, void>({
+    mutationFn: (): Promise<Task> =>
+      api.create({
+        title: title.trim(),
+        category: newCategory.trim() || undefined,
+        dueDate: dueDate || undefined, // 文字列(ISO) or null/undefined
+      }),
+    onSuccess: () => {
+      setTitle('')
+      setNewCategory('')
+      setDueDate('')
+      qc.invalidateQueries({ queryKey: ['tasks'] })
+    },
+  })
 
 
   // トグル（done/archived）
-  const mToggle = useMutation<Task, unknown, ToggleVars>({
+  const mToggle = useMutation<Task, unknown, ToggleVars, ctx>({
     mutationFn: (vars): Promise<Task> => api.toggle(vars.id, vars.field, vars.value),
     onMutate: async (vars) => {
       await qc.cancelQueries({ queryKey: key })
@@ -186,7 +187,10 @@ const mCreate = useMutation<Task, unknown, void>({
                   {t.title}
                 </div>
                 <div style={{ fontSize: 12, color: '#666' }}>
-                  {t.category || '未分類'} ・ 作成: {new Date(t.createdAt).toLocaleString()}
+                  {t.category || '未分類'} ・ 作成:
+                  {t.createdAt
+                  ? new Date(t.createdAt).toLocaleString()
+                  : '-'}
                   {t.dueDate ? ` ・ 期限: ${new Date(t.dueDate).toLocaleString()}` : ''}
                 </div>
               </div>
